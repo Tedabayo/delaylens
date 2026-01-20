@@ -1,61 +1,81 @@
-# DelayLens – Real-Time Public Transit Delay Prediction
+# DelayLens – Real-Time Transit ML (GTFS-Realtime)
 
-**Course:** ID2223 – Scalable Machine Learning  
-**Institution:** KTH Royal Institute of Technology  
+DelayLens is a scalable machine learning project that ingests **GTFS-Realtime Trip Updates**, engineers features from streaming data, stores them in the **Hopsworks Feature Store**, trains a model using a **Feature View**, runs batch inference, and visualizes predictions in a **Streamlit UI**.
 
-## 0. Project Name and Group Members
-**Project Name:** DelayLens – Real-Time Public Transit Delay Prediction  
-
-**Group Members:**  
-- Tida Bayo  
+This project follows the architecture and requirements of **ID2223 Lab 1 & Lab 2**.
 
 ---
 
-## 1. Dynamic Data Sources
-This project uses **dynamic, real-time data sources** and does not rely on static Kaggle datasets.
+## 1. Dynamic Data Source
 
-- **GTFS-Realtime Trip Updates**  
-  Live streaming data providing real-time information about vehicle movements and delays.
-- **Static GTFS Schedules**  
-  Route, stop, and trip metadata used to contextualize live updates.
+- **Source:** GTFS-Realtime Trip Updates feed  
+- **Type:** Streaming / continuously updated data  
+- **Ingestion:**  
+  The realtime feed is fetched repeatedly and parsed into tabular form.
 
-The real-time data is continuously fetched and processed to reflect the current state of public transit.
+Each feed snapshot is timestamped using:
+- `feed_timestamp` (event time)
+- `iso_time_utc`
 
----
-
-## 2. Prediction Problem
-The goal of this project is to **predict and monitor public transit delays in real time**.
-
-By combining GTFS-Realtime trip updates with static GTFS schedule data, the system produces enriched features that:
-- Capture current delays at stop and route level
-- Can be used to train machine learning models for delay prediction
-- Support real-time monitoring and downstream decision-making
+A guard is used to **skip ingestion when the feed timestamp is unchanged**, ensuring true streaming behavior.
 
 ---
 
-## 3. User Interface
-The project provides a **web-based dashboard built with Streamlit**.
+## 2. Prediction Target
 
-The UI allows users to:
-- View live public transit trip updates
-- Inspect delay information at stop and route level
-- Understand how real-time data is processed and updated continuously
+We explicitly define the prediction target as:
 
-To run the UI locally:
+### **num_updates_at_stop**
+
+> The number of GTFS-Realtime updates observed for a given  
+> **(route_id, stop_id)** within a short time window.
+
+This target:
+- Is derived directly from the realtime stream
+- Does not rely on static schedules
+- Acts as a proxy for transit instability / congestion
+
+---
+
+## 3. Feature Engineering
+
+Realtime GTFS data is transformed into features including:
+
+- `route_id`
+- `trip_id`
+- `stop_id`
+- `stop_sequence`
+- `arrival_time`
+- `departure_time`
+- `feed_timestamp`
+- `iso_time_utc`
+
+The target column `num_updates_at_stop` is computed from the streaming data.
+
+---
+
+## 4. Feature Store (Hopsworks)
+
+Features are stored in **Hopsworks Feature Store**.
+
+### Feature Groups
+- **realtime_features_target_fg (v1)**
+  - Primary keys: `feed_timestamp`, `trip_id`, `stop_id`
+  - Event time: `feed_timestamp`
+  - Contains engineered features + target
+
+Feature group materialization runs asynchronously in Hopsworks.
+
+---
+
+## 5. Feature Pipeline
+
+**Script:**  
 ```bash
-streamlit run ui/app.py
+python scripts/feature_pipeline.py
 
 
-Technologies Used
+Live Demo
 
-Python
-
-GTFS-Realtime
-
-Pandas
-
-Streamlit
-
-REST APIs
-
-Git and GitHub
+The real-time DelayLens UI is deployed on Hugging Face Spaces:
+https://huggingface.co/spaces/teeda-ml/delaylens

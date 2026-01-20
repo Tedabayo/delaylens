@@ -1,4 +1,3 @@
-cat > app.py <<'EOF'
 import os
 import pandas as pd
 import streamlit as st
@@ -7,7 +6,7 @@ import hopsworks
 
 FG_NAME = "realtime_predictions_fg"
 FG_VERSION = 1
-MAX_ROWS = 500  # pull last N rows
+MAX_ROWS = 500
 
 st.set_page_config(page_title="DelayLens", layout="wide")
 st.title("DelayLens – Real-Time Transit Monitor (with Predictions)")
@@ -16,7 +15,7 @@ st.title("DelayLens – Real-Time Transit Monitor (with Predictions)")
 def load_preds_from_hopsworks():
     api_key = os.environ.get("HOPSWORKS_API_KEY")
     if not api_key:
-        raise RuntimeError("HOPSWORKS_API_KEY is not set (add it as a Space secret or export locally).")
+        raise RuntimeError("HOPSWORKS_API_KEY is not set.")
 
     project = hopsworks.login(api_key_value=api_key)
     fs = project.get_feature_store()
@@ -29,21 +28,29 @@ def load_preds_from_hopsworks():
     return df.head(MAX_ROWS)
 
 st.caption(f"Last refresh: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
 df = load_preds_from_hopsworks()
 
 st.subheader("Latest predictions (sample)")
-show_cols = ["iso_time_utc", "route_id", "trip_id", "stop_id", "prediction_num_updates"]
+show_cols = [
+    "iso_time_utc",
+    "route_id",
+    "trip_id",
+    "stop_id",
+    "prediction_num_updates",
+]
+
 if "actual_num_updates" in df.columns:
     show_cols.append("actual_num_updates")
-show_cols = [c for c in show_cols if c in df.columns]
 
+show_cols = [c for c in show_cols if c in df.columns]
 st.dataframe(df[show_cols], use_container_width=True)
 
 st.markdown(
     """
 **What you are seeing**
-- Predictions are stored in **Hopsworks Feature Group**: `realtime_predictions_fg`
-- This UI reads directly from Hopsworks (cloud-ready)
+- Predictions come from **Hopsworks Feature Group**
+- Feature Group: `realtime_predictions_fg`
 """
 )
-EOF
+
